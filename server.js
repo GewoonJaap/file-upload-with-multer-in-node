@@ -53,7 +53,7 @@ app.post('/uploadphoto', upload.single('picture'), (req, res) => {
   const encode_image = img.toString('base64');
 
   db.collection('images').findOne({
-    'image': new Buffer(encode_image, 'base64')
+    'image': new Buffer.from(encode_image, 'base64')
   }, (err, result) => {
 
     if (result) {
@@ -62,7 +62,7 @@ app.post('/uploadphoto', upload.single('picture'), (req, res) => {
     } else {
       const finalImg = {
         contentType: mimeType,
-        image: new Buffer(encode_image, 'base64'),
+        image: new Buffer.from(encode_image, 'base64'),
         uploaderIP: req.ip,
         timestamp: new Date(),
         size: req.file.size,
