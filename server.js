@@ -52,6 +52,7 @@ app.post('/uploadphoto', upload.single('picture'), (req, res) => {
   const img = fs.readFileSync(req.file.path);
   const encode_image = img.toString('base64');
 
+
   db.collection('images').findOne({
     'image': new Buffer.from(encode_image, 'base64')
   }, (err, result) => {
@@ -63,7 +64,8 @@ app.post('/uploadphoto', upload.single('picture'), (req, res) => {
       const finalImg = {
         contentType: mimeType,
         image: new Buffer.from(encode_image, 'base64'),
-        uploaderIP: req.header('x_real_ip') || req.ip,
+        uploaderIP: req.header('x-forwarded-for') || req.ip,
+        cloudflareRayId: req.header('cf-ray'),
         timestamp: new Date(),
         size: req.file.size,
         originalName: req.file.originalname
