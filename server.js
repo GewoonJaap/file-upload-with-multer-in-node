@@ -63,7 +63,7 @@ app.post('/uploadphoto', upload.single('picture'), (req, res) => {
       const finalImg = {
         contentType: mimeType,
         image: new Buffer.from(encode_image, 'base64'),
-        uploaderIP: req.ip,
+        uploaderIP: req.header('x_real_ip') || req.ip,
         timestamp: new Date(),
         size: req.file.size,
         originalName: req.file.originalname
