@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Upload your image - Mr. Proper</title>
+  <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css">
+  <link rel="stylesheet" href="./css/main.css">
+</head>
+
+<body id='dropArea' style="height: 100vh;">
+  <div class="wrapper">
+    <div class="file-upload">
+      <form action="/uploadphoto" id="new_document_attachment" enctype="multipart/form-data" method="POST">
+        <input type="file" id="document_attachment_doc" name="picture" accept="image/*" />
+        <input type="submit" hidden />
+      </form>
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+</body>
+
+<script src="/js/main.js"></script>
+
+</html>

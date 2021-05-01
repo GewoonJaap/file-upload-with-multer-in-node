@@ -1,17 +1,25 @@
-const express = require('express')
-const bodyParser= require('body-parser')
-const app = express()
+const express = require('express');
+const bodyParser = require('body-parser');
+const app = express();
+app.use(express.static('public'))
 const multer = require('multer');
 fs = require('fs-extra')
-app.use(bodyParser.urlencoded({extended: true}))
+app.use(bodyParser.urlencoded({
+  extended: true
+}))
+require('dotenv').config();
+
+const allowedMimeTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif'];
 
 const MongoClient = require('mongodb').MongoClient
 ObjectId = require('mongodb').ObjectId
 
-const myurl = 'mongodb://localhost:27017';
+createAndCleanUploadFolder();
+
+setInterval(createAndCleanUploadFolder, 1000 * 60);
 
 
-var storage = multer.diskStorage({
+const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads')
   },
@@ -20,98 +28,88 @@ var storage = multer.diskStorage({
   }
 })
 
-var upload = multer({ storage: storage })
+const upload = multer({
+  storage: storage
+})
 
-MongoClient.connect(myurl, (err, client) => {
+MongoClient.connect(process.env.MONGODB_URL, (err, client) => {
   if (err) return console.log(err)
-  db = client.db('test') 
-  app.listen(3000, () => {
-    console.log('listening on 3000')
+  db = client.db('mproper-image-host')
+  app.listen(80, () => {
+    console.log('listening on 80')
   })
 })
 
-app.get('/',function(req,res){
-  res.sendFile(__dirname + '/index.html');
-
+app.get('/', function (req, res) {
+  res.sendFile(__dirname + '/public/html/index.html');
 });
-
-// upload single file
-
-app.post('/uploadfile', upload.single('myFile'), (req, res, next) => {
-  const file = req.file
-  if (!file) {
-    const error = new Error('Please upload a file')
-    error.httpStatusCode = 400
-    return next(error)
-
-  }
-
- 
-    res.send(file)
- 
-})
-//Uploading multiple files
-app.post('/uploadmultiple', upload.array('myFiles', 12), (req, res, next) => {
-  const files = req.files
-  if (!files) {
-    const error = new Error('Please choose files')
-    error.httpStatusCode = 400
-    return next(error)
-  }
-
-    res.send(files)
- 
-})
 
 
 app.post('/uploadphoto', upload.single('picture'), (req, res) => {
-	var img = fs.readFileSync(req.file.path);
- var encode_image = img.toString('base64');
- // Define a JSONobject for the image attributes for saving to database
- 
- var finalImg = {
-      contentType: req.file.mimetype,
-      image:  new Buffer(encode_image, 'base64')
-   };
-db.collection('mycollection').insertOne(finalImg, (err, result) => {
-  	console.log(result)
+  const mimeType = req.file.mimetype;
+  if (allowedMimeTypes.indexOf(mimeType) == -1) return res.redirect(`/`);
 
-    if (err) return console.log(err)
+  const img = fs.readFileSync(req.file.path);
+  const encode_image = img.toString('base64');
 
-    console.log('saved to database')
-    res.redirect('/')
-  
-    
-  })
+  db.collection('images').findOne({
+    'image': new Buffer(encode_image, 'base64')
+  }, (err, result) => {
+
+    if (result) {
+      console.log('Duplicate found!', result._id);
+      return res.redirect(`/image/${result._id}`)
+    } else {
+      const finalImg = {
+        contentType: mimeType,
+        image: new Buffer(encode_image, 'base64'),
+        uploaderIP: req.ip,
+        timestamp: new Date(),
+        size: req.file.size,
+        originalName: req.file.originalname
+      };
+      db.collection('images').insertOne(finalImg, (err, result) => {
+        if (err) return console.log(err)
+        res.redirect(`/image/${result.insertedId}`)
+      })
+    }
+  });
+
+
+
 })
 
+app.get('/image/:id', (req, res) => {
+  const filename = req.params.id;
+  try {
 
-app.get('/photos', (req, res) => {
-db.collection('mycollection').find().toArray((err, result) => {
+    db.collection('images').findOne({
+      '_id': ObjectId(filename)
+    }, (err, result) => {
+      if (!result) return res.redirect(`/`);
+      if (err) return console.log(err)
 
-  	const imgArray= result.map(element => element._id);
-			console.log(imgArray);
+      res.contentType('image/jpeg');
+      res.send(result.image.buffer)
 
-   if (err) return console.log(err)
-   res.send(imgArray)
 
-  
-   
-  })
+    });
+  } catch (e) {
+    res.redirect(`/`)
+  }
 });
 
-app.get('/photo/:id', (req, res) => {
-var filename = req.params.id;
 
-db.collection('mycollection').findOne({'_id': ObjectId(filename) }, (err, result) => {
+function createAndCleanUploadFolder() {
+  try {
+    fs.rmdirSync('./uploads', {
+      recursive: true
+    });
 
-    if (err) return console.log(err)
+    console.log(`/upload is deleted!`);
+  } catch (err) {
+    console.error(`Error while deleting /upload.`, err);
+  }
 
-   res.contentType('image/jpeg');
-   res.send(result.image.buffer)
-  
-   
-  })
-})
-
-
+  fs.mkdirSync('./uploads')
+}
